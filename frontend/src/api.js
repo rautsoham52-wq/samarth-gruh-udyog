@@ -68,7 +68,11 @@ function getErrorMessage(data) {
 }
 
 async function apiRequest(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const requestUrl =
+    import.meta.env.PROD && path.startsWith("/admin/")
+      ? `/api${path}`
+      : `${API_BASE_URL}${path}`;
+  const response = await fetch(requestUrl, {
     ...options,
     credentials: "include",
     headers: {

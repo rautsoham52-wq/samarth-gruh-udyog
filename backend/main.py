@@ -206,7 +206,7 @@ def admin_login(payload: AdminLoginRequest, response: Response, db: Session = De
         httponly=True,
         secure=auth_cookie_secure(),
         samesite=auth_cookie_samesite(),
-        path="/admin",
+        path="/api/admin",
     )
     return admin
 
@@ -225,7 +225,7 @@ def admin_logout(response: Response) -> dict[str, str]:
         httponly=True,
         secure=auth_cookie_secure(),
         samesite=auth_cookie_samesite(),
-        path="/admin",
+        path="/api/admin",
     )
     return {"message": "Logged out."}
 
