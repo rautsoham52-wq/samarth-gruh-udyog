@@ -122,6 +122,9 @@ allowed_origins = [
     ).split(",")
     if origin.strip()
 ]
+production_frontend_origin = "https://samarth-gruh-udyog-1.onrender.com"
+if production_frontend_origin not in allowed_origins:
+    allowed_origins.append(production_frontend_origin)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
