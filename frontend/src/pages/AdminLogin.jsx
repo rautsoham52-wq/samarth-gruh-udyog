@@ -17,7 +17,7 @@ function AdminLogin() {
     setIsSubmitting(true);
     setError("");
     try {
-      await adminLogin(email.trim(), password);
+      await adminLogin({ email: email.trim(), password });
       window.location.assign("/admin");
     } catch (requestError) {
       setError(

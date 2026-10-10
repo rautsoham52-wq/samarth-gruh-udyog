@@ -14,6 +14,59 @@ export class ApiError extends Error {
   }
 }
 
+function getErrorMessage(data) {
+  const detail = data && typeof data === "object" ? data.detail : null;
+  const message = data && typeof data === "object" ? data.message : null;
+  const candidate = detail ?? message;
+
+  if (typeof candidate === "string" && candidate.trim()) {
+    return candidate;
+  }
+
+  if (Array.isArray(candidate)) {
+    const messages = candidate
+      .map((issue) => {
+        if (typeof issue === "string") {
+          return issue;
+        }
+        if (!issue || typeof issue !== "object") {
+          return "";
+        }
+
+        const issueMessage =
+          typeof issue.msg === "string" ? issue.msg : issue.message;
+        if (typeof issueMessage !== "string" || !issueMessage.trim()) {
+          return "";
+        }
+
+        const location = Array.isArray(issue.loc)
+          ? issue.loc.filter((part) => part !== "body").join(".")
+          : "";
+        return location ? `${location}: ${issueMessage}` : issueMessage;
+      })
+      .filter(Boolean);
+
+    if (messages.length > 0) {
+      return messages.join(" ");
+    }
+  }
+
+  if (candidate && typeof candidate === "object") {
+    if (typeof candidate.msg === "string") {
+      return candidate.msg;
+    }
+    if (typeof candidate.message === "string") {
+      return candidate.message;
+    }
+  }
+
+  if (typeof data === "string" && data.trim()) {
+    return data;
+  }
+
+  return "Request failed";
+}
+
 async function apiRequest(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
@@ -30,12 +83,7 @@ async function apiRequest(path, options = {}) {
     : await response.text();
 
   if (!response.ok) {
-    const message =
-      typeof data === "object" && data !== null
-        ? data.detail || data.message || "Request failed"
-        : data || "Request failed";
-
-    throw new ApiError(response.status, message, data);
+    throw new ApiError(response.status, getErrorMessage(data), data);
   }
 
   return data;
