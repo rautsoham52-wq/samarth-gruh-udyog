@@ -1,141 +1,21 @@
+```javascript
 const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL ||
-  `http://${window.location.hostname || "127.0.0.1"}:8000`
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD
+    ? "https://samarth-gruh-udyog.onrender.com"
+    : "http://127.0.0.1:8000")
 ).replace(/\/+$/, "");
 
 export class ApiError extends Error {
-  constructor(message, status) {
+  constructor(status, message, data = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.data = data;
   }
 }
 
-export async function fetchProducts() {
-  const response = await fetch(`${API_BASE_URL}/products`);
-
-  if (!response.ok) {
-    throw new Error(`Products request failed with status ${response.status}.`);
-  }
-
-  const products = await response.json();
-  if (!Array.isArray(products)) {
-    throw new Error("The products response was not a list.");
-  }
-
-  return products;
-}
-
-async function readResponse(response, action) {
-  const result = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new ApiError(
-      result?.detail || `${action} failed with status ${response.status}.`,
-      response.status
-    );
-  }
-  return result;
-}
-
-export async function createOrder(order) {
-  const response = await fetch(`${API_BASE_URL}/orders`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(order),
-  });
-  return readResponse(response, "Placing order");
-}
-
-export async function fetchOrder(orderNumber, customerPhone) {
-  const response = await fetch(
-    `${API_BASE_URL}/orders/${encodeURIComponent(orderNumber)}`,
-    { headers: { "X-Customer-Phone": customerPhone } }
-  );
-  return readResponse(response, "Fetching order");
-}
-
-export async function trackOrder(orderNumber, customerPhone) {
-  const response = await fetch(`${API_BASE_URL}/orders/track`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      order_number: orderNumber,
-      customer_phone: customerPhone,
-    }),
-  });
-  return readResponse(response, "Tracking order");
-}
-
-export async function adminLogin(email, password) {
-  const response = await fetch(`${API_BASE_URL}/admin/login`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  return readResponse(response, "Admin login");
-}
-
-export async function fetchCurrentAdmin() {
-  const response = await fetch(`${API_BASE_URL}/admin/me`, {
-    credentials: "include",
-  });
-  return readResponse(response, "Admin session verification");
-}
-
-export async function fetchAdminDashboard() {
-  const response = await fetch(`${API_BASE_URL}/admin/dashboard`, {
-    credentials: "include",
-  });
-  return readResponse(response, "Loading dashboard");
-}
-
-export async function fetchAdminOrders({ status = "", search = "" } = {}) {
-  const query = new URLSearchParams();
-  if (status) {
-    query.set("status", status);
-  }
-  if (search.trim()) {
-    query.set("search", search.trim());
-  }
-  const queryString = query.toString();
-  const response = await fetch(
-    `${API_BASE_URL}/admin/orders${queryString ? `?${queryString}` : ""}`,
-    { credentials: "include" }
-  );
-  return readResponse(response, "Loading orders");
-}
-
-export async function fetchAdminOrder(orderNumber) {
-  const response = await fetch(
-    `${API_BASE_URL}/admin/orders/${encodeURIComponent(orderNumber)}`,
-    { credentials: "include" }
-  );
-  return readResponse(response, "Loading order");
-}
-
-export async function updateAdminOrderStatus(orderNumber, status) {
-  const response = await fetch(
-    `${API_BASE_URL}/admin/orders/${encodeURIComponent(orderNumber)}/status`,
-    {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    }
-  );
-  return readResponse(response, "Updating order status");
-}
-
-export async function adminLogout() {
-  const response = await fetch(`${API_BASE_URL}/admin/logout`, {
-    method: "POST",
-    credentials: "include",
-  });
-  return readResponse(response, "Admin logout");
-}
-
-async function adminRequest(path, action, options = {}) {
+async function apiRequest(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     credentials: "include",
@@ -144,57 +24,130 @@ async function adminRequest(path, action, options = {}) {
       ...options.headers,
     },
   });
-  return readResponse(response, action);
+
+  const contentType = response.headers.get("content-type") || "";
+  const data = contentType.includes("application/json")
+    ? await response.json()
+    : await response.text();
+
+  if (!response.ok) {
+    const message =
+      typeof data === "object" && data !== null
+        ? data.detail || data.message || "Request failed"
+        : data || "Request failed";
+
+    throw new ApiError(response.status, message, data);
+  }
+
+  return data;
 }
 
-export const fetchAdminInventory = () =>
-  adminRequest("/admin/inventory", "Loading inventory");
+export async function fetchProducts() {
+  return apiRequest("/products");
+}
 
-export const updateAdminVariant = (variantId, updates) =>
-  adminRequest(`/admin/inventory/variants/${variantId}`, "Updating variant", {
-    method: "PATCH",
-    body: JSON.stringify(updates),
-  });
-
-export const createAdminVariant = (productId, variant) =>
-  adminRequest(`/admin/products/${productId}/variants`, "Adding variant", {
+export async function createOrder(orderData) {
+  return apiRequest("/orders", {
     method: "POST",
-    body: JSON.stringify(variant),
+    body: JSON.stringify(orderData),
   });
+}
 
-export const fetchAdminSales = (period, startDate, endDate) => {
-  const query = new URLSearchParams({ period });
-  if (startDate && endDate) {
-    query.set("start_date", startDate);
-    query.set("end_date", endDate);
-  }
-  return adminRequest(`/admin/sales?${query}`, "Loading sales");
-};
+export async function fetchOrder(orderId) {
+  return apiRequest(`/orders/${orderId}`);
+}
 
-export const fetchAdminSalesPeriods = (groupBy) =>
-  adminRequest(`/admin/reports/sales?group_by=${groupBy}`, "Loading reports");
+export async function trackOrder(orderId) {
+  return apiRequest(`/orders/${orderId}/track`);
+}
 
-export const fetchAdminExpenses = ({ startDate, endDate, category } = {}) => {
-  const query = new URLSearchParams();
-  if (startDate) query.set("start_date", startDate);
-  if (endDate) query.set("end_date", endDate);
-  if (category) query.set("category", category);
-  return adminRequest(`/admin/expenses${query.size ? `?${query}` : ""}`, "Loading expenses");
-};
-
-export const createAdminExpense = (expense) =>
-  adminRequest("/admin/expenses", "Saving expense", {
+export async function adminLogin(credentials) {
+  return apiRequest("/admin/login", {
     method: "POST",
-    body: JSON.stringify(expense),
+    body: JSON.stringify(credentials),
   });
+}
 
-export const updateAdminExpense = (expenseId, updates) =>
-  adminRequest(`/admin/expenses/${expenseId}`, "Updating expense", {
+export async function fetchCurrentAdmin() {
+  return apiRequest("/admin/me");
+}
+
+export async function fetchAdminDashboard() {
+  return apiRequest("/admin/dashboard");
+}
+
+export async function fetchAdminOrders() {
+  return apiRequest("/admin/orders");
+}
+
+export async function fetchAdminOrder(orderId) {
+  return apiRequest(`/admin/orders/${orderId}`);
+}
+
+export async function updateAdminOrderStatus(orderId, status) {
+  return apiRequest(`/admin/orders/${orderId}/status`, {
     method: "PATCH",
-    body: JSON.stringify(updates),
+    body: JSON.stringify({ status }),
   });
+}
 
-export const deleteAdminExpense = (expenseId) =>
-  adminRequest(`/admin/expenses/${expenseId}`, "Deleting expense", {
+export async function adminLogout() {
+  return apiRequest("/admin/logout", {
+    method: "POST",
+  });
+}
+
+export async function adminRequest(path, options = {}) {
+  return apiRequest(path, options);
+}
+
+export async function fetchAdminInventory() {
+  return apiRequest("/admin/inventory");
+}
+
+export async function updateAdminVariant(variantId, variantData) {
+  return apiRequest(`/admin/variants/${variantId}`, {
+    method: "PATCH",
+    body: JSON.stringify(variantData),
+  });
+}
+
+export async function createAdminVariant(variantData) {
+  return apiRequest("/admin/variants", {
+    method: "POST",
+    body: JSON.stringify(variantData),
+  });
+}
+
+export async function fetchAdminSales() {
+  return apiRequest("/admin/sales");
+}
+
+export async function fetchAdminSalesPeriods() {
+  return apiRequest("/admin/sales/periods");
+}
+
+export async function fetchAdminExpenses() {
+  return apiRequest("/admin/expenses");
+}
+
+export async function createAdminExpense(expenseData) {
+  return apiRequest("/admin/expenses", {
+    method: "POST",
+    body: JSON.stringify(expenseData),
+  });
+}
+
+export async function updateAdminExpense(expenseId, expenseData) {
+  return apiRequest(`/admin/expenses/${expenseId}`, {
+    method: "PATCH",
+    body: JSON.stringify(expenseData),
+  });
+}
+
+export async function deleteAdminExpense(expenseId) {
+  return apiRequest(`/admin/expenses/${expenseId}`, {
     method: "DELETE",
   });
+}
+```
