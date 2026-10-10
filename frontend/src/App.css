@@ -1217,9 +1217,32 @@ body {
   font-size: 14px;
 }
 
+.footer-address {
+  max-width: 100%;
+  color: #fffaf0;
+  font-size: 14px;
+  font-style: normal;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
 .footer-business a {
   color: #ffe0a0;
   text-decoration: none;
+}
+
+.footer-business .footer-directions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid #dfc68f;
+  border-radius: 999px;
+  background: #7a241f;
+  color: #ffe0a0;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .footer > p {
